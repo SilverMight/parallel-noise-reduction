@@ -16,7 +16,7 @@ include(cmake/variables.cmake)
 
 add_library(
     parallel-noise-reduction_lib OBJECT
-    source/lib.cpp
+    source/wav_file.cpp
 )
 
 target_include_directories(

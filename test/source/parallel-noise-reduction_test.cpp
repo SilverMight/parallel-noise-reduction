@@ -1,9 +1,1 @@
-#include <catch2/catch_test_macros.hpp>
-
-#include "lib.hpp"
-
-TEST_CASE("Name is parallel-noise-reduction", "[library]")
-{
-  auto const lib = library {};
-  REQUIRE(lib.name == "parallel-noise-reduction");
-}
+// stub file for tests.
