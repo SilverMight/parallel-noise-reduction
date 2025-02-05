@@ -8,7 +8,7 @@
 /**
  * @brief The core implementation of parallel noise reduction
  *
- * 
+ *
  */
 
 class wav_file {
@@ -29,12 +29,10 @@ class wav_file {
     uint16_t block_align;
     uint16_t bits_per_sample;
 
-
-  } wav_header {};
+  } wav_header{};
 
   void validate_header();
 
 public:
-  explicit wav_file(const std::filesystem::path& file_path);
-
+  explicit wav_file(const std::filesystem::path &file_path);
 };
