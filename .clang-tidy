@@ -8,7 +8,7 @@ Checks: "*,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-avoid-c-arrays,
   -modernize-*,
-  -hicpp-*
+  -hicpp-*,
   -google-readability-todo,
   -altera-*,
   -fuchsia-*,
