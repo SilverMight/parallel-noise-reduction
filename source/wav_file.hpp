@@ -4,6 +4,7 @@
 #include <fstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 /**
  * @brief The core implementation of parallel noise reduction
@@ -28,10 +29,17 @@ class wav_file {
     uint32_t byte_rate;
     uint16_t block_align;
     uint16_t bits_per_sample;
-
   } wav_header{};
 
+  std::vector<char> raw_audio_data;
+  // Contains actual audio samples in the format 
+  // samples[channels][samples]
+  std::vector<std::vector<int16_t>> samples;
+
   void validate_header();
+  void read_raw_audio_data();
+
+  uint16_t get_num_channels() const;
 
 public:
   explicit wav_file(const std::filesystem::path &file_path);
