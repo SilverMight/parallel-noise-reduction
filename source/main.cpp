@@ -22,5 +22,7 @@ auto main(int argc, char *argv[]) -> int {
 
   const wav_file input_wav{input_file};
 
+  input_wav.write(output_file);
+
   return 0;
 }

@@ -29,18 +29,22 @@ class wav_file {
     uint32_t byte_rate;
     uint16_t block_align;
     uint16_t bits_per_sample;
-  } wav_header{};
+  } wav_header {};
 
-  std::vector<char> raw_audio_data;
+   
   // Contains actual audio samples in the format 
   // samples[channels][samples]
   std::vector<std::vector<int16_t>> samples;
 
-  void validate_header();
-  void read_raw_audio_data();
+  void validate_header() const;
+  void read_samples(const std::vector<char>& raw_audio_data);
+  std::vector<char> get_raw_data_from_samples() const;
 
-  uint16_t get_num_channels() const;
+
 
 public:
   explicit wav_file(const std::filesystem::path &file_path);
+  uint16_t get_num_channels() const;
+
+  void write(const std::filesystem::path &file_path) const;
 };
