@@ -32,9 +32,7 @@ class wav_file {
   } wav_header {};
 
    
-  // Contains actual audio samples in the format 
-  // samples[channels][samples]
-  std::vector<std::vector<int16_t>> samples;
+
 
   void validate_header() const;
   void read_samples(const std::vector<char>& raw_audio_data);
@@ -47,4 +45,8 @@ public:
   uint16_t get_num_channels() const;
 
   void write(const std::filesystem::path &file_path) const;
+  
+  // Contains actual audio samples in the format
+  // samples[channels][samples]
+  std::vector<std::vector<int16_t>> samples;
 };
