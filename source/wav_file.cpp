@@ -160,3 +160,8 @@ void wav_file::write(const std::filesystem::path& file_path) const {
 uint16_t wav_file::get_num_channels() const {
   return wav_header.num_channels;
 }
+
+void wav_file::set_num_channels(uint16_t num)
+{
+  wav_header.num_channels = num;
+}

@@ -43,10 +43,13 @@ class wav_file {
 public:
   explicit wav_file(const std::filesystem::path &file_path);
   uint16_t get_num_channels() const;
+  void set_num_channels(uint16_t);
+
 
   void write(const std::filesystem::path &file_path) const;
   
   // Contains actual audio samples in the format
   // samples[channels][samples]
   std::vector<std::vector<int16_t>> samples;
+  
 };
