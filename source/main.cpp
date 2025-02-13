@@ -30,10 +30,10 @@ void normalizeAudio(std::vector<std::vector<int16_t>>& samples)
 
 std::vector<int16_t> sumToMono(std::vector<std::vector<int16_t>> samples)
 {
-  std::size_t channels = samples.size();
-  std::size_t length_of_samples = samples[0].size();
+  size_t channels = samples.size();
+  size_t length_of_samples = samples[0].size();
   std::vector<int16_t> mono_data(length_of_samples);
-  for (std::size_t i = 0; i < length_of_samples; i++)
+  for (size_t i = 0; i < length_of_samples; i++)
   {
     int32_t total = 0; // avoid overflow
     for (auto& channel : samples)
@@ -47,11 +47,27 @@ std::vector<int16_t> sumToMono(std::vector<std::vector<int16_t>> samples)
   return mono_data;
 }
 
-//std::vector<std::vector<int16_t>> generateFrames(std::vector<int16_t> samples, int frame_size)
-//{
-//  
-//}
-//
+// TODO: double check if this is right
+std::vector<std::vector<int16_t>> frameSlice(std::vector<int16_t> samples, size_t frame_size, float overlap_ratio = 0.5f)
+{
+  std::vector<std::vector<int16_t>> frames;
+  size_t overlap = static_cast<size_t>(frame_size * overlap_ratio);
+  
+  if (overlap_ratio >= 1)
+  {
+    std::cout << "Error. Overlap ratio is greater than 1." << std::endl;
+  }
+  
+  size_t chunk = frame_size - overlap;
+  
+  for (size_t i = 0; i < ((samples.size() - overlap)/chunk); i++)
+  {
+    std::vector<int16_t> frame(samples.begin() + (chunk * i), samples.begin() + (chunk * i) + frame_size);
+    frames.push_back(frame);
+  }
+  return frames;
+}
+
 //std::vector<double> generateHammingWindow(int window_size)
 //{
 //  
@@ -86,9 +102,11 @@ auto main(int argc, char *argv[]) -> int {
 //  input_wav.samples = mono_wrapper;
 //  input_wav.set_num_channels(1);
 
+  std::vector<std::vector<int16_t>> frames = frameSlice(mono_data, 1024);
+//  auto window = generateHammingWindow(1024);
   
-  // Window function (this is just an array with weights that we apply to "frames" of our signal. https://en.wikipedia.org/wiki/Window_function#Hann_and_Hamming_windows
-  // TODO: we need to find what a good frame size is AND we need to figure out our windowing function. The 2 that stand out are Hann and Hamming
+  // Apply the window function (multiply)
+  
   
   input_wav.write(output_file);
 
