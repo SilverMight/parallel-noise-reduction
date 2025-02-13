@@ -17,18 +17,45 @@ void normalizeAudio(std::vector<std::vector<int16_t>>& samples)
     int16_t channel_max = *std::max_element(channel.begin(), channel.end(), [](int16_t a, int16_t b) { return std::abs(a) < std::abs(b); });
     max = std::max(max, static_cast<int16_t>(std::abs(channel_max)));
   }
-  
-  std::cout << "The max value is " << max << std::endl;
-  
+    
   // Normalize
   for (auto& channel : samples)
   {
     for (auto& sample : channel)
     {
-      sample = static_cast<int16_t>((sample / static_cast<float>(max)) * INT16_MAX);
+      sample = static_cast<int16_t>((sample / static_cast<double>(max)) * INT16_MAX);
     }
   }
 }
+
+std::vector<int16_t> sumToMono(std::vector<std::vector<int16_t>> samples)
+{
+  std::size_t channels = samples.size();
+  std::size_t length_of_samples = samples[0].size();
+  std::vector<int16_t> mono_data(length_of_samples);
+  for (std::size_t i = 0; i < length_of_samples; i++)
+  {
+    int32_t total = 0; // avoid overflow
+    for (auto& channel : samples)
+    {
+      total += channel[i];
+    }
+
+    mono_data[i] = static_cast<int16_t>(total / static_cast<int32_t>(channels));
+  }
+  
+  return mono_data;
+}
+
+//std::vector<std::vector<int16_t>> generateFrames(std::vector<int16_t> samples, int frame_size)
+//{
+//  
+//}
+//
+//std::vector<double> generateHammingWindow(int window_size)
+//{
+//  
+//}
 
 auto main(int argc, char *argv[]) -> int {
   if (argc < 3) {
@@ -50,6 +77,16 @@ auto main(int argc, char *argv[]) -> int {
   
   normalizeAudio(input_wav.samples);
   
+  std::cout << "Summing to mono..." << std::endl;
+  std::vector<int16_t> mono_data = sumToMono(input_wav.samples);
+  
+// DEBUG for printing the mono track
+//  std::vector<std::vector<int16_t>> mono_wrapper;
+//  mono_wrapper.push_back(mono_data);
+//  input_wav.samples = mono_wrapper;
+//  input_wav.set_num_channels(1);
+
+  
   // Window function (this is just an array with weights that we apply to "frames" of our signal. https://en.wikipedia.org/wiki/Window_function#Hann_and_Hamming_windows
   // TODO: we need to find what a good frame size is AND we need to figure out our windowing function. The 2 that stand out are Hann and Hamming
   
@@ -57,3 +94,4 @@ auto main(int argc, char *argv[]) -> int {
 
   return 0;
 }
+
