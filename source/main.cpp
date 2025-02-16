@@ -5,7 +5,7 @@
 #include <span>
 #include <algorithm>
 #include <vector>
-#include <cmath>
+#include <numbers>
 
 int16_t max = 0; // We will need this variable at the end when we "unnormalize" the audio to match the original vol
 
@@ -23,7 +23,7 @@ void normalizeAudio(std::vector<std::vector<int16_t>>& samples)
   {
     for (auto& sample : channel)
     {
-      sample = static_cast<int16_t>((sample / static_cast<double>(max)) * INT16_MAX);
+      sample = static_cast<int16_t>((sample / static_cast<double>(max)) * std::numeric_limits<int16_t>::max());
     }
   }
 }
@@ -68,10 +68,17 @@ std::vector<std::vector<int16_t>> frameSlice(std::vector<int16_t> samples, size_
   return frames;
 }
 
-//std::vector<double> generateHammingWindow(int window_size)
-//{
-//  
-//}
+
+std::vector<double> generateHammingWindow(size_t window_size)
+{
+  std::vector<double> hamming(window_size);
+  for (size_t n = 0; n < window_size; n++)
+  {
+    hamming[n] = 0.54 - 0.46 * cos(2 * std::numbers::pi * n / window_size - 1);
+  }
+  
+  return hamming;
+}
 
 auto main(int argc, char *argv[]) -> int {
   if (argc < 3) {
@@ -101,11 +108,22 @@ auto main(int argc, char *argv[]) -> int {
 //  mono_wrapper.push_back(mono_data);
 //  input_wav.samples = mono_wrapper;
 //  input_wav.set_num_channels(1);
+  
+  const auto frame_size = 1024;
 
-  std::vector<std::vector<int16_t>> frames = frameSlice(mono_data, 1024);
-//  auto window = generateHammingWindow(1024);
+  std::vector<std::vector<int16_t>> frames = frameSlice(mono_data, frame_size);
+  auto window = generateHammingWindow(frame_size);
   
   // Apply the window function (multiply)
+  // this could be parallel...
+  for (auto& frame: frames)
+  {
+    for (size_t i = 0; i < frame_size; i++)
+    {
+      frame[i] = static_cast<int16_t>(frame[i] * window[i]);
+    }
+  }
+  
   
   
   input_wav.write(output_file);
