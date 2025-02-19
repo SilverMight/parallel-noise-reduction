@@ -17,6 +17,7 @@ include(cmake/variables.cmake)
 add_library(
     parallel-noise-reduction_lib OBJECT
     source/wav_file.cpp
+    source/audio_processing.cpp
 )
 
 target_include_directories(
@@ -29,6 +30,9 @@ target_compile_features(parallel-noise-reduction_lib PUBLIC cxx_std_23)
 
 find_package(fmt REQUIRED)
 target_link_libraries(parallel-noise-reduction_lib PRIVATE fmt::fmt)
+
+find_package(FFTW3 REQUIRED)
+target_link_libraries(parallel-noise-reduction_lib PRIVATE FFTW3::fftw3)
 
 # ---- Declare executable ----
 
