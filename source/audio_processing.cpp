@@ -12,10 +12,13 @@ namespace audio_processing {
 namespace {
 template<typename T>
 std::vector<std::vector<T>> cast_2d_vec_to_t(const std::vector<std::vector<int16_t>>& input) {
-    std::vector<std::vector<T>> output(input.size());
+    std::vector<std::vector<T>> output{};
+    output.reserve(input.size());
 
     for (const auto& channel : input) {
-        std::vector<T> float_samples(channel.size());
+        std::vector<T> float_samples{};
+        float_samples.reserve(channel.size());
+
 
         for (const auto sample : channel) {
             float_samples.push_back(static_cast<T>(sample));

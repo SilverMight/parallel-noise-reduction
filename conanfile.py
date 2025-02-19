@@ -10,8 +10,8 @@ class Recipe(ConanFile):
 
     def requirements(self):
         self.requires("fmt/11.0.2")
+        self.requires("fftw/3.3.10")
         pass
 
     def build_requirements(self):
-        self.test_requires("catch2/3.7.1")
         pass
