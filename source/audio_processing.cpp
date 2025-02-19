@@ -1,11 +1,13 @@
 #include "audio_processing.hpp"
 
+#include "fftw3.h"
 #include <algorithm>
 #include <cmath>
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <vector>
 namespace audio_processing {
 
@@ -115,15 +117,45 @@ std::vector<double> generate_hamming_window(size_t window_size)
 }
 
 void apply_hamming_window(std::vector<std::vector<double>>& frames) {
-  const auto hamming_window_constants = generate_hamming_window(frames.size());
+  const auto frame_size = frames[0].size();
+  const auto hamming_window_constants = generate_hamming_window(frame_size);
 
 
   for(auto& frame: frames) {
-    for(size_t sample_idx = 0; sample_idx < frame.size(); sample_idx++) {
+    for(size_t sample_idx = 0; sample_idx < frame_size; sample_idx++) {
       frame[sample_idx] *= hamming_window_constants[sample_idx];
     }
   }
   
+}
+
+std::vector<std::vector<double>> apply_fft(const std::vector<std::vector<double>>& frames) {
+  // TODO: Finish this function
+  constexpr size_t noise_frames = 5;
+
+  const auto frame_size = static_cast<int>(frames[0].size());
+
+
+  auto *fft_in = fftw_alloc_real(frame_size);
+  auto *fft_out = fftw_alloc_complex(frame_size / 2 + 1);
+
+  fftw_plan forward_plan = fftw_plan_dft_r2c_1d(frame_size, fft_in, fft_out, FFTW_ESTIMATE);
+
+
+  // Noise profile calculation
+  std::vector<double> noise_profile(frame_size/2 + 1, 0.0);
+  const auto num_noise_frames = std::min(noise_frames, frames.size());
+
+  for(std::size_t i = 0; i < num_noise_frames; ++i) {
+    std::copy(frames[i].begin(), frames[i].end(), fft_in);
+  }
+
+  for(const auto& frame: frames) {
+    std::copy(frame.begin(), frame.end(), fft_in);
+    fftw_execute(forward_plan);
+  }
+  
+  return {};
 }
 
 std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<int16_t>>& samples) {
