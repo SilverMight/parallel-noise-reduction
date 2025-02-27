@@ -34,8 +34,8 @@ std::vector<std::vector<T>> cast_2d_vec_to_t(const std::vector<std::vector<int16
     return output;
 }
 
-inline double complex_magnitude_squared(fftw_complex& complex) {
-  return (complex[0] * complex[0]) + (complex[1] * complex[1]);
+inline double complex_magnitude(fftw_complex& complex) {
+  return std::sqrt((complex[0] * complex[0]) + (complex[1] * complex[1]));
 }
 }  // namespace
 
@@ -133,10 +133,71 @@ void apply_hamming_window(std::vector<std::vector<double>>& frames) {
   
 }
 
-std::vector<vector<double>> spectral_subtraction(const std::vector<std::vector<double>>& frames,
+std::vector<std::vector<double>> spectral_subtraction(const std::vector<std::vector<double>>& frames,
                                                  const std::vector<double>& noise_profile) {
+  std::vector<std::vector<double>> clean_frames; 
 
-  
+  const auto frame_size = frames[0].size();
+  const auto complex_size = frame_size / 2 + 1;
+
+  auto *fft_in = fftw_alloc_real(frame_size);
+  auto *fft_out = fftw_alloc_complex(complex_size);
+
+  auto fft_in_span = std::span{fft_in, frame_size};
+  auto fft_out_span = std::span{fft_out, complex_size};
+
+  fftw_plan forward_plan = fftw_plan_dft_r2c_1d(static_cast<int>(frame_size),
+                                                fft_in,
+                                                fft_out, 
+                                                FFTW_ESTIMATE);
+
+  auto* cleaned_ifft_in = fftw_alloc_real(frame_size);
+  auto cleaned_ifft_in_span  = std::span{cleaned_ifft_in, frame_size};
+
+  fftw_plan backward_plan = fftw_plan_dft_c2r_1d(static_cast<int>(frame_size),
+                                                 fft_out,
+                                                 cleaned_ifft_in, 
+                                                 FFTW_ESTIMATE);
+
+  // Perform spectral subtraction.
+  for(const auto& frame : frames) {
+
+    std::copy(frame.begin(), frame.end(), fft_in);
+
+    fftw_execute(forward_plan);
+
+
+    for(auto [noise_frame, fft_frame] : std::views::zip(noise_profile, fft_out_span)) {
+      double& real = fft_frame[0];
+      double& imag = fft_frame[1];
+
+      auto mag = complex_magnitude(fft_frame);
+      auto phase = std::atan2(imag, real);
+
+      double subtracted_mag = mag - noise_frame;
+
+      real = subtracted_mag * std::cos(phase);
+      imag = subtracted_mag * std::sin(phase);
+
+      // Do IFFT back to reals.
+    }
+
+    fftw_execute(backward_plan);
+
+    for(auto &ifft_frame : cleaned_ifft_in_span) {
+      ifft_frame /= static_cast<double>(frame_size);
+    }
+
+    clean_frames.emplace_back(cleaned_ifft_in_span.begin(), cleaned_ifft_in_span.end());
+  }
+
+  fftw_destroy_plan(backward_plan);
+  fftw_destroy_plan(forward_plan);
+  fftw_free(fft_out);
+  fftw_free(fft_in);
+  fftw_free(cleaned_ifft_in);
+
+  return clean_frames;
 }
 
 std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& frames) {
@@ -167,7 +228,7 @@ std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& fr
     fftw_execute(forward_plan);
 
     for(auto [noise_frame, fft_frame] : std::views::zip(noise_profile, fft_out_span)) {
-      noise_frame += std::sqrt(complex_magnitude_squared(fft_frame));
+      noise_frame += complex_magnitude(fft_frame);
     }
   }
 
@@ -204,6 +265,7 @@ std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<in
   apply_hamming_window(frames);
 
   const auto noise_profile = get_noise_profile(frames);
+  const auto cleaned_frames = spectral_subtraction(frames, noise_profile);
   
   
   // TODO: Actually return samples!
