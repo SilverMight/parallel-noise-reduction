@@ -7,7 +7,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
-#include <memory>
+#include <ranges>
+#include <span>
+#include <numbers>
 #include <vector>
 namespace audio_processing {
 
@@ -30,6 +32,10 @@ std::vector<std::vector<T>> cast_2d_vec_to_t(const std::vector<std::vector<int16
     }
 
     return output;
+}
+
+inline double complex_magnitude_squared(fftw_complex& complex) {
+  return (complex[0] * complex[0]) + (complex[1] * complex[1]);
 }
 }  // namespace
 
@@ -80,13 +86,11 @@ std::vector<double> sum_to_mono(const std::vector<std::vector<double>>& samples)
   return mono_data;
 }
 
-// TODO: double check if this is right
 std::vector<std::vector<double>> frame_slice(const std::vector<double>& samples, size_t frame_size, double overlap_ratio = default_overlap)
 {
   std::vector<std::vector<double>> frames;
   const auto overlap = static_cast<size_t>(static_cast<double>(frame_size) * overlap_ratio);
 
-  // TODO: handle this properly
   assert(overlap_ratio < 1);
 
   const auto chunk = frame_size - overlap;
@@ -129,17 +133,29 @@ void apply_hamming_window(std::vector<std::vector<double>>& frames) {
   
 }
 
-std::vector<std::vector<double>> apply_fft(const std::vector<std::vector<double>>& frames) {
-  // TODO: Finish this function
+std::vector<vector<double>> spectral_subtraction(const std::vector<std::vector<double>>& frames,
+                                                 const std::vector<double>& noise_profile) {
+
+  
+}
+
+std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& frames) {
   constexpr size_t noise_frames = 5;
 
-  const auto frame_size = static_cast<int>(frames[0].size());
+  const auto frame_size = frames[0].size();
+  const auto complex_size = frame_size / 2 + 1;
 
 
   auto *fft_in = fftw_alloc_real(frame_size);
-  auto *fft_out = fftw_alloc_complex(frame_size / 2 + 1);
+  auto *fft_out = fftw_alloc_complex(complex_size);
 
-  fftw_plan forward_plan = fftw_plan_dft_r2c_1d(frame_size, fft_in, fft_out, FFTW_ESTIMATE);
+  auto fft_in_span = std::span{fft_in, frame_size};
+  auto fft_out_span = std::span{fft_out, complex_size};
+
+  fftw_plan forward_plan = fftw_plan_dft_r2c_1d(static_cast<int>(frame_size),
+                                                fft_in,
+                                                fft_out, 
+                                                FFTW_ESTIMATE);
 
 
   // Noise profile calculation
@@ -148,14 +164,24 @@ std::vector<std::vector<double>> apply_fft(const std::vector<std::vector<double>
 
   for(std::size_t i = 0; i < num_noise_frames; ++i) {
     std::copy(frames[i].begin(), frames[i].end(), fft_in);
+    fftw_execute(forward_plan);
+
+    for(auto [noise_frame, fft_frame] : std::views::zip(noise_profile, fft_out_span)) {
+      noise_frame += std::sqrt(complex_magnitude_squared(fft_frame));
+    }
   }
 
-  for(const auto& frame: frames) {
-    std::copy(frame.begin(), frame.end(), fft_in);
-    fftw_execute(forward_plan);
+  // Average noise frames.
+  for(auto& val : noise_profile) {
+    val /= static_cast<double>(num_noise_frames);
   }
-  
-  return {};
+
+  // todo: consider using smart pointers or the like..
+  fftw_destroy_plan(forward_plan);
+  fftw_free(fft_in);
+  fftw_free(fft_out);
+
+  return noise_profile;
 }
 
 std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<int16_t>>& samples) {
@@ -176,6 +202,8 @@ std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<in
 
   auto frames = frame_slice(mono_data, frame_size);
   apply_hamming_window(frames);
+
+  const auto noise_profile = get_noise_profile(frames);
   
   
   // TODO: Actually return samples!
