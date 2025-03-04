@@ -11,7 +11,7 @@
 
 auto main(int argc, char *argv[]) -> int {
   if (argc < 3) {
-    std::cout << "Usage: executable [input_file.wav] [output_file.wav]\n";
+    std::cout << "Usage: Executable [input_file.wav] [output_file.wav]\n";
     return -1;
   }
 
@@ -29,6 +29,11 @@ auto main(int argc, char *argv[]) -> int {
   
   const auto new_samples = audio_processing::process_audio(input_wav.samples);
 
+  // temp method for printing file
+  input_wav.samples = new_samples;
+  input_wav.set_num_channels(1);
+
+  input_wav.write(output_file);
 
   return 0;
 }

@@ -245,6 +245,48 @@ std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& fr
   return noise_profile;
 }
 
+std::vector<double> overlap_add(const std::vector<std::vector<double>>& frames,  size_t frame_size, double overlap_ratio = default_overlap)
+{
+  const auto overlap = static_cast<size_t>(static_cast<double>(frame_size) * overlap_ratio);
+
+  const auto hop = frame_size - overlap; // This is the size of the frame ignoring the overlapped section
+
+  // Find the total length needed for output (assuming mono...)
+  // (n-1) "hop" frames + a full frame
+  const auto output_size = (hop * frames.size() - 1);
+
+  // Initialize output array
+  std::vector<double> output(output_size, 0.0);
+
+  // we also need to calculate the weights (over total array) to unweight them
+  std::vector<double> weight_sum(output_size, 0.0);
+
+  const auto hamming_window_constants = generate_hamming_window(frame_size);
+
+  // NOTE: there is a way to do this more efficiently using the fact that the hamming window is repeated but im lazy (and the beginning and tail ends wont have the same weight pattern)
+
+  // add each frame to the output buffer
+  for (std::size_t i = 0; i < frames.size(); ++i)
+  {
+    const auto absolute_index = i * hop;
+
+    for (std::size_t j = 0; j < frame_size && j < frames[i].size(); ++j)
+    {
+      output[absolute_index + j] += frames[i][j];
+      weight_sum[absolute_index + j] += hamming_window_constants[j];
+    }
+  }
+
+  // unweight
+  for (std::size_t i = 0; i < output_size; ++i)
+  {
+    assert(weight_sum[i] > 0.0);
+    output[i] /= weight_sum[i];
+  }
+
+  return output;
+}
+
 std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<int16_t>>& samples) {
   // Cast to double
   auto samples_doubles = cast_2d_vec_to_t<double>(samples);
@@ -266,9 +308,25 @@ std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<in
 
   const auto noise_profile = get_noise_profile(frames);
   const auto cleaned_frames = spectral_subtraction(frames, noise_profile);
-  
-  
-  // TODO: Actually return samples!
-  return {};  
+  const auto processed_mono = overlap_add(cleaned_frames, frame_size);
+
+
+  // Convert back to int16_t with proper scaling
+  std::vector<std::vector<int16_t>> result(1);
+  result[0].reserve(processed_mono.size());
+
+  // Scale to use the int16_t range
+  double scale = max > 0 ? static_cast<double>(std::numeric_limits<int16_t>::max()) / max : 1.0;
+
+  for (const auto& sample : processed_mono) {
+   // cast to int (int32_t to avoid overflow)
+    int32_t scaled_sample = static_cast<int32_t>(std::round(sample * scale));
+    // check to int16_t range
+    scaled_sample = std::max(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::min()));
+    scaled_sample = std::min(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::max()));
+    result[0].push_back(static_cast<int16_t>(scaled_sample));
+  }
+
+  return result;
 }
 }  // namespace audio_processing
