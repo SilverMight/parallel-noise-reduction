@@ -1,6 +1,9 @@
 #include "audio_processing.hpp"
 
-#include "fftw3.h"
+#include <fftw3.h>
+
+#include "fftw_memory.hh"
+
 #include <algorithm>
 #include <cmath>
 #include <cassert>
@@ -135,36 +138,43 @@ void apply_hamming_window(std::vector<std::vector<double>>& frames) {
 
 std::vector<std::vector<double>> spectral_subtraction(const std::vector<std::vector<double>>& frames,
                                                  const std::vector<double>& noise_profile) {
+  using fftw_memory::fftw_unique_ptr;
+
   std::vector<std::vector<double>> clean_frames; 
 
   const auto frame_size = frames[0].size();
   const auto complex_size = frame_size / 2 + 1;
 
-  auto *fft_in = fftw_alloc_real(frame_size);
-  auto *fft_out = fftw_alloc_complex(complex_size);
+  using fftw_memory::make_fftw_unique;
+  using fftw_memory::fftw_plan_unique_ptr;
 
-  auto fft_in_span = std::span{fft_in, frame_size};
-  auto fft_out_span = std::span{fft_out, complex_size};
+  auto fft_in = make_fftw_unique<double>(frame_size);
+  auto fft_out = make_fftw_unique<fftw_complex>(complex_size);
 
-  fftw_plan forward_plan = fftw_plan_dft_r2c_1d(static_cast<int>(frame_size),
-                                                fft_in,
-                                                fft_out, 
-                                                FFTW_ESTIMATE);
+  auto fft_in_span = std::span{fft_in.get(), 
+                               frame_size};
+  auto fft_out_span = std::span{fft_out.get(),
+                                complex_size};
 
-  auto* cleaned_ifft_in = fftw_alloc_real(frame_size);
-  auto cleaned_ifft_in_span  = std::span{cleaned_ifft_in, frame_size};
+  auto forward_plan = fftw_plan_unique_ptr{fftw_plan_dft_r2c_1d(static_cast<int>(frame_size),
+                                                                fft_in.get(),
+                                                                fft_out.get(), 
+                                                                FFTW_ESTIMATE)};
 
-  fftw_plan backward_plan = fftw_plan_dft_c2r_1d(static_cast<int>(frame_size),
-                                                 fft_out,
-                                                 cleaned_ifft_in, 
-                                                 FFTW_ESTIMATE);
+  auto cleaned_ifft_in = make_fftw_unique<double>(frame_size);
+  auto cleaned_ifft_in_span  = std::span{cleaned_ifft_in.get(), frame_size};
+
+  auto backward_plan = fftw_plan_unique_ptr{fftw_plan_dft_c2r_1d(static_cast<int>(frame_size),
+                                                                 fft_out.get(),
+                                                                 cleaned_ifft_in.get(), 
+                                                                 FFTW_ESTIMATE)};
 
   // Perform spectral subtraction.
   for(const auto& frame : frames) {
 
-    std::copy(frame.begin(), frame.end(), fft_in);
+    std::copy(frame.begin(), frame.end(), fft_in.get());
 
-    fftw_execute(forward_plan);
+    fftw_execute(forward_plan.get());
 
 
     for(auto [noise_frame, fft_frame] : std::views::zip(noise_profile, fft_out_span)) {
@@ -182,7 +192,7 @@ std::vector<std::vector<double>> spectral_subtraction(const std::vector<std::vec
       // Do IFFT back to reals.
     }
 
-    fftw_execute(backward_plan);
+    fftw_execute(backward_plan.get());
 
     for(auto &ifft_frame : cleaned_ifft_in_span) {
       ifft_frame /= static_cast<double>(frame_size);
@@ -190,12 +200,6 @@ std::vector<std::vector<double>> spectral_subtraction(const std::vector<std::vec
 
     clean_frames.emplace_back(cleaned_ifft_in_span.begin(), cleaned_ifft_in_span.end());
   }
-
-  fftw_destroy_plan(backward_plan);
-  fftw_destroy_plan(forward_plan);
-  fftw_free(fft_out);
-  fftw_free(fft_in);
-  fftw_free(cleaned_ifft_in);
 
   return clean_frames;
 }
@@ -206,17 +210,20 @@ std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& fr
   const auto frame_size = frames[0].size();
   const auto complex_size = frame_size / 2 + 1;
 
+  using fftw_memory::make_fftw_unique;
+  using fftw_memory::fftw_unique_ptr;
+  using fftw_memory::fftw_plan_unique_ptr;
 
-  auto *fft_in = fftw_alloc_real(frame_size);
-  auto *fft_out = fftw_alloc_complex(complex_size);
+  auto fft_in = make_fftw_unique<double>(frame_size);
+  auto fft_out = make_fftw_unique<fftw_complex>(complex_size);
 
-  auto fft_in_span = std::span{fft_in, frame_size};
-  auto fft_out_span = std::span{fft_out, complex_size};
+  auto fft_in_span = std::span{fft_in.get(), frame_size};
+  auto fft_out_span = std::span{fft_out.get(), complex_size};
 
-  fftw_plan forward_plan = fftw_plan_dft_r2c_1d(static_cast<int>(frame_size),
-                                                fft_in,
-                                                fft_out, 
-                                                FFTW_ESTIMATE);
+  auto forward_plan = fftw_plan_unique_ptr{fftw_plan_dft_r2c_1d(static_cast<int>(frame_size),
+                                                                fft_in.get(),
+                                                                fft_out.get(), 
+                                                                FFTW_ESTIMATE)};
 
 
   // Noise profile calculation
@@ -224,8 +231,8 @@ std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& fr
   const auto num_noise_frames = std::min(noise_frames, frames.size());
 
   for(std::size_t i = 0; i < num_noise_frames; ++i) {
-    std::copy(frames[i].begin(), frames[i].end(), fft_in);
-    fftw_execute(forward_plan);
+    std::copy(frames[i].begin(), frames[i].end(), fft_in.get());
+    fftw_execute(forward_plan.get());
 
     for(auto [noise_frame, fft_frame] : std::views::zip(noise_profile, fft_out_span)) {
       noise_frame += complex_magnitude(fft_frame);
@@ -236,11 +243,6 @@ std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& fr
   for(auto& val : noise_profile) {
     val /= static_cast<double>(num_noise_frames);
   }
-
-  // todo: consider using smart pointers or the like..
-  fftw_destroy_plan(forward_plan);
-  fftw_free(fft_in);
-  fftw_free(fft_out);
 
   return noise_profile;
 }
@@ -326,6 +328,8 @@ std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<in
     scaled_sample = std::min(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::max()));
     result[0].push_back(static_cast<int16_t>(scaled_sample));
   }
+
+  fftw_cleanup();
 
   return result;
 }
