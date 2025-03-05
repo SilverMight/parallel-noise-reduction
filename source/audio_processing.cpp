@@ -184,7 +184,8 @@ std::vector<std::vector<double>> spectral_subtraction(const std::vector<std::vec
       auto mag = complex_magnitude(fft_frame);
       auto phase = std::atan2(imag, real);
 
-      double subtracted_mag = mag - noise_frame;
+      // clamp to 0 if we get a negative value
+      double subtracted_mag = std::max(0.0, mag - noise_frame);
 
       real = subtracted_mag * std::cos(phase);
       imag = subtracted_mag * std::sin(phase);
@@ -255,7 +256,8 @@ std::vector<double> overlap_add(const std::vector<std::vector<double>>& frames, 
 
   // Find the total length needed for output (assuming mono...)
   // (n-1) "hop" frames + a full frame
-  const auto output_size = (hop * frames.size() - 1);
+  // TODO: figure out the correct formula for this
+  const auto output_size = (hop * (frames.size() - 1) + frame_size);
 
   // Initialize output array
   std::vector<double> output(output_size, 0.0);
@@ -295,42 +297,49 @@ std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<in
 
   auto max = normalize_audio(samples_doubles);
   
-  auto mono_data = sum_to_mono(samples_doubles);
-  
-// DEBUG for printing the mono track
-//  std::vector<std::vector<int16_t>> mono_wrapper;
-//  mono_wrapper.push_back(mono_data);
-//  input_wav.samples = mono_wrapper;
-//  input_wav.set_num_channels(1);
-  
-  const auto frame_size = 1024;
+  auto cleaned_channels = std::vector<std::vector<int16_t>>{};
 
-  auto frames = frame_slice(mono_data, frame_size);
-  apply_hamming_window(frames);
+  cleaned_channels.reserve(samples_doubles.size());
 
-  const auto noise_profile = get_noise_profile(frames);
-  const auto cleaned_frames = spectral_subtraction(frames, noise_profile);
-  const auto processed_mono = overlap_add(cleaned_frames, frame_size);
+  for(const auto& mono_data: samples_doubles) {
+    // DEBUG for printing the mono track
+    //  std::vector<std::vector<int16_t>> mono_wrapper;
+    //  mono_wrapper.push_back(mono_data);
+    //  input_wav.samples = mono_wrapper;
+    //  input_wav.set_num_channels(1);
 
+    const auto frame_size = 1024;
 
-  // Convert back to int16_t with proper scaling
-  std::vector<std::vector<int16_t>> result(1);
-  result[0].reserve(processed_mono.size());
+    auto frames = frame_slice(mono_data, frame_size);
+    apply_hamming_window(frames);
 
-  // Scale to use the int16_t range
-  double scale = max > 0 ? static_cast<double>(std::numeric_limits<int16_t>::max()) / max : 1.0;
+    const auto noise_profile = get_noise_profile(frames);
 
-  for (const auto& sample : processed_mono) {
-   // cast to int (int32_t to avoid overflow)
-    int32_t scaled_sample = static_cast<int32_t>(std::round(sample * scale));
-    // check to int16_t range
-    scaled_sample = std::max(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::min()));
-    scaled_sample = std::min(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::max()));
-    result[0].push_back(static_cast<int16_t>(scaled_sample));
+    const auto cleaned_frames = spectral_subtraction(frames, noise_profile);
+    const auto processed_mono = overlap_add(cleaned_frames, frame_size);
+
+    // Convert back to int16_t with proper scaling
+    std::vector<int16_t> result;
+    result.reserve(processed_mono.size());
+
+    // Scale to use the int16_t range
+    double scale = max > 0 ? static_cast<double>(std::numeric_limits<int16_t>::max()) / max : 1.0;
+
+    for (const auto& sample : processed_mono) {
+      // cast to int (int32_t to avoid overflow)
+      int32_t scaled_sample = static_cast<int32_t>(std::round(sample * scale));
+
+      // check to int16_t range
+      scaled_sample = std::max(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::min()));
+      scaled_sample = std::min(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::max()));
+      result.push_back(static_cast<int16_t>(scaled_sample));
+    }
+
+    cleaned_channels.push_back(std::move(result));
   }
 
   fftw_cleanup();
 
-  return result;
+  return cleaned_channels;
 }
 }  // namespace audio_processing

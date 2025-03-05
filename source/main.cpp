@@ -31,7 +31,6 @@ auto main(int argc, char *argv[]) -> int {
 
   // temp method for printing file
   input_wav.samples = new_samples;
-  input_wav.set_num_channels(1);
 
   input_wav.write(output_file);
 
