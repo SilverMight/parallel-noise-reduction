@@ -291,6 +291,27 @@ std::vector<double> overlap_add(const std::vector<std::vector<double>>& frames, 
   return output;
 }
 
+std::vector<int16_t> scale_samples_and_clamp_to_int16(const std::vector<double>& normalized_mono_samples, int16_t max) {
+    // Convert back to int16_t with proper scaling
+    std::vector<int16_t> result;
+    result.reserve(normalized_mono_samples.size());
+
+    // Scale to use the int16_t range
+    double scale = max > 0 ? static_cast<double>(std::numeric_limits<int16_t>::max()) / max : 1.0;
+
+    for (const auto& sample : normalized_mono_samples) {
+      // cast to int (int32_t to avoid overflow)
+      int32_t scaled_sample = static_cast<int32_t>(std::round(sample * scale));
+
+      // check to int16_t range
+      scaled_sample = std::max(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::min()));
+      scaled_sample = std::min(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::max()));
+      result.push_back(static_cast<int16_t>(scaled_sample));
+    }
+
+  return result;
+}
+
 std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<int16_t>>& samples) {
   // Cast to double
   auto samples_doubles = cast_2d_vec_to_t<double>(samples);
@@ -318,24 +339,8 @@ std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<in
     const auto cleaned_frames = spectral_subtraction(frames, noise_profile);
     const auto processed_mono = overlap_add(cleaned_frames, frame_size);
 
-    // Convert back to int16_t with proper scaling
-    std::vector<int16_t> result;
-    result.reserve(processed_mono.size());
-
-    // Scale to use the int16_t range
-    double scale = max > 0 ? static_cast<double>(std::numeric_limits<int16_t>::max()) / max : 1.0;
-
-    for (const auto& sample : processed_mono) {
-      // cast to int (int32_t to avoid overflow)
-      int32_t scaled_sample = static_cast<int32_t>(std::round(sample * scale));
-
-      // check to int16_t range
-      scaled_sample = std::max(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::min()));
-      scaled_sample = std::min(scaled_sample, static_cast<int32_t>(std::numeric_limits<int16_t>::max()));
-      result.push_back(static_cast<int16_t>(scaled_sample));
-    }
-
-    cleaned_channels.push_back(std::move(result));
+    auto scaled_samples = scale_samples_and_clamp_to_int16(processed_mono, max); 
+    cleaned_channels.push_back(std::move(scaled_samples));
   }
 
   fftw_cleanup();
