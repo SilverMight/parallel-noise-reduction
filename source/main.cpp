@@ -3,11 +3,12 @@
 
 #include <filesystem>
 #include <iostream>
+#include <ranges>
 #include <span>
 #include <algorithm>
 #include <vector>
 #include <numbers>
-
+#include <future>
 
 auto main(int argc, char *argv[]) -> int {
   if (argc < 3) {
@@ -27,10 +28,9 @@ auto main(int argc, char *argv[]) -> int {
 
   wav_file input_wav{input_file};
   
-  const auto new_samples = audio_processing::process_audio(input_wav.samples);
-
+  const auto cleaned_samples = audio_processing::process_audio(input_wav.samples);
   // temp method for printing file
-  input_wav.samples = new_samples;
+  input_wav.samples = cleaned_samples;
 
   input_wav.write(output_file);
 

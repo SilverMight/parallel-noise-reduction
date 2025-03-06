@@ -1,6 +1,7 @@
 #include "audio_processing.hpp"
 
 #include <fftw3.h>
+#include <fmt/format.h>
 
 #include "fftw_memory.hh"
 
@@ -9,9 +10,11 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <ranges>
 #include <span>
+#include <future>
 #include <numbers>
 #include <vector>
 namespace audio_processing {
@@ -322,6 +325,8 @@ std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<in
 
   cleaned_channels.reserve(samples_doubles.size());
 
+  std::vector<std::vector<int16_t>> cleaned_samples{};
+
   for(const auto& mono_data: samples_doubles) {
     // DEBUG for printing the mono track
     //  std::vector<std::vector<int16_t>> mono_wrapper;
@@ -336,10 +341,36 @@ std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<in
 
     const auto noise_profile = get_noise_profile(frames);
 
-    const auto cleaned_frames = spectral_subtraction(frames, noise_profile);
-    const auto processed_mono = overlap_add(cleaned_frames, frame_size);
+    // TODO: Parametrize this, or abstract threading logic out.
+    constexpr size_t num_threads = 12;
 
-    auto scaled_samples = scale_samples_and_clamp_to_int16(processed_mono, max); 
+    std::vector<std::future<std::vector<double>>> futures;
+
+    // ceiling divide for chunk size
+    const auto chunk_size = size_t{frames.size() / num_threads};
+
+    const auto chunks = std::views::chunk(frames, static_cast<int64_t>(chunk_size));
+    for(const auto frame_chunk : chunks) {
+
+      const auto frame_chunk_vec = std::ranges::to<std::vector<std::vector<double>>>(frame_chunk);
+
+      futures.push_back(std::async(std::launch::async, [&, frame_chunk_vec]() {
+        const auto cleaned_frames = spectral_subtraction(frame_chunk_vec, noise_profile);
+        const auto processed_mono = overlap_add(cleaned_frames, frame_size);
+
+        return processed_mono;
+      }));
+
+    }
+
+    std::vector<double> result_channel_samples;
+    for(auto& result : futures) {
+      const auto result_chunk = result.get();
+      result_channel_samples.insert(result_channel_samples.end(), result_chunk.begin(), result_chunk.end());
+    }
+
+
+    auto scaled_samples = scale_samples_and_clamp_to_int16(result_channel_samples, max); 
     cleaned_channels.push_back(std::move(scaled_samples));
   }
 
