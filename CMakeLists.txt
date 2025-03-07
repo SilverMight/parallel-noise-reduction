@@ -18,6 +18,7 @@ add_library(
     parallel-noise-reduction_lib OBJECT
     source/wav_file.cpp
     source/audio_processing.cpp
+    source/parallel_audio_processor.cpp
 )
 
 target_include_directories(
@@ -34,6 +35,8 @@ target_link_libraries(parallel-noise-reduction_lib PRIVATE fmt::fmt)
 find_package(FFTW3 REQUIRED)
 target_link_libraries(parallel-noise-reduction_lib PRIVATE FFTW3::fftw3)
 
+find_package(bshoshany-thread-pool REQUIRED)
+target_link_libraries(parallel-noise-reduction_lib PUBLIC bshoshany-thread-pool::bshoshany-thread-pool)
 # ---- Declare executable ----
 
 add_executable(parallel-noise-reduction_exe source/main.cpp)
@@ -41,7 +44,7 @@ add_executable(parallel-noise-reduction::exe ALIAS parallel-noise-reduction_exe)
 
 set_property(TARGET parallel-noise-reduction_exe PROPERTY OUTPUT_NAME parallel-noise-reduction)
 
-target_compile_features(parallel-noise-reduction_exe PRIVATE cxx_std_20)
+target_compile_features(parallel-noise-reduction_exe PRIVATE cxx_std_23)
 
 target_link_libraries(parallel-noise-reduction_exe PRIVATE parallel-noise-reduction_lib)
 

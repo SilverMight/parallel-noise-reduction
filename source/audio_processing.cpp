@@ -20,25 +20,6 @@
 namespace audio_processing {
 
 namespace {
-template<typename T>
-std::vector<std::vector<T>> cast_2d_vec_to_t(const std::vector<std::vector<int16_t>>& input) {
-    std::vector<std::vector<T>> output{};
-    output.reserve(input.size());
-
-    for (const auto& channel : input) {
-        std::vector<T> float_samples{};
-        float_samples.reserve(channel.size());
-
-
-        for (const auto sample : channel) {
-            float_samples.push_back(static_cast<T>(sample));
-        }
-
-        output.push_back(std::move(float_samples));
-    }
-
-    return output;
-}
 
 inline double complex_magnitude(fftw_complex& complex) {
   return std::sqrt((complex[0] * complex[0]) + (complex[1] * complex[1]));
@@ -92,7 +73,7 @@ std::vector<double> sum_to_mono(const std::vector<std::vector<double>>& samples)
   return mono_data;
 }
 
-std::vector<std::vector<double>> frame_slice(const std::vector<double>& samples, size_t frame_size, double overlap_ratio = default_overlap)
+std::vector<std::vector<double>> frame_slice(const std::vector<double>& samples, size_t frame_size, double overlap_ratio)
 {
   std::vector<std::vector<double>> frames;
   const auto overlap = static_cast<size_t>(static_cast<double>(frame_size) * overlap_ratio);
@@ -251,7 +232,7 @@ std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& fr
   return noise_profile;
 }
 
-std::vector<double> overlap_add(const std::vector<std::vector<double>>& frames,  size_t frame_size, double overlap_ratio = default_overlap)
+std::vector<double> overlap_add(const std::vector<std::vector<double>>& frames,  size_t frame_size, double overlap_ratio)
 {
   const auto overlap = static_cast<size_t>(static_cast<double>(frame_size) * overlap_ratio);
 
@@ -315,67 +296,4 @@ std::vector<int16_t> scale_samples_and_clamp_to_int16(const std::vector<double>&
   return result;
 }
 
-std::vector<std::vector<int16_t>> process_audio(const std::vector<std::vector<int16_t>>& samples) {
-  // Cast to double
-  auto samples_doubles = cast_2d_vec_to_t<double>(samples);
-
-  auto max = normalize_audio(samples_doubles);
-  
-  auto cleaned_channels = std::vector<std::vector<int16_t>>{};
-
-  cleaned_channels.reserve(samples_doubles.size());
-
-  std::vector<std::vector<int16_t>> cleaned_samples{};
-
-  for(const auto& mono_data: samples_doubles) {
-    // DEBUG for printing the mono track
-    //  std::vector<std::vector<int16_t>> mono_wrapper;
-    //  mono_wrapper.push_back(mono_data);
-    //  input_wav.samples = mono_wrapper;
-    //  input_wav.set_num_channels(1);
-
-    const auto frame_size = 1024;
-
-    auto frames = frame_slice(mono_data, frame_size);
-    apply_hamming_window(frames);
-
-    const auto noise_profile = get_noise_profile(frames);
-
-    // TODO: Parametrize this, or abstract threading logic out.
-    constexpr size_t num_threads = 12;
-
-    std::vector<std::future<std::vector<double>>> futures;
-
-    // ceiling divide for chunk size
-    const auto chunk_size = size_t{frames.size() / num_threads};
-
-    const auto chunks = std::views::chunk(frames, static_cast<int64_t>(chunk_size));
-    for(const auto frame_chunk : chunks) {
-
-      const auto frame_chunk_vec = std::ranges::to<std::vector<std::vector<double>>>(frame_chunk);
-
-      futures.push_back(std::async(std::launch::async, [&, frame_chunk_vec]() {
-        const auto cleaned_frames = spectral_subtraction(frame_chunk_vec, noise_profile);
-        const auto processed_mono = overlap_add(cleaned_frames, frame_size);
-
-        return processed_mono;
-      }));
-
-    }
-
-    std::vector<double> result_channel_samples;
-    for(auto& result : futures) {
-      const auto result_chunk = result.get();
-      result_channel_samples.insert(result_channel_samples.end(), result_chunk.begin(), result_chunk.end());
-    }
-
-
-    auto scaled_samples = scale_samples_and_clamp_to_int16(result_channel_samples, max); 
-    cleaned_channels.push_back(std::move(scaled_samples));
-  }
-
-  fftw_cleanup();
-
-  return cleaned_channels;
-}
 }  // namespace audio_processing
