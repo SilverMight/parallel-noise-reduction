@@ -4,16 +4,35 @@
 
 For a list of dependencies, please refer to [conanfile.py](conanfile.py).
 
+To use Conan to install each dependency, run
+
+```sh 
+
+```
+
 ## Build
 
-This project doesn't require any special command-line flags to build to keep
-things simple.
+### Dependencies 
+For a list of dependencies, please refer to [conanfile.py](conanfile.py).
 
+If it is your first time using Conan, first install [Conan2](https://docs.conan.io/2/installation.html).
+
+You may need to allow Conan to generate a profile:
+```
+conan profile detect
+```
+
+Then run this command to get the project dependencies for release:
+```sh
+conan install . -s build_type=Release -b missing
+```
+
+### Building
 Here are the steps for building in release mode with a single-configuration
-generator, like the Unix Makefiles one:
+generator, like the Unix Makefiles one, using Conan's toolchain:
 
 ```sh
-cmake -S . -B build -D CMAKE_BUILD_TYPE=Release
+cmake -S . -B build -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=conan/conan_toolchain.cmake
 cmake --build build
 ```
 
@@ -21,7 +40,7 @@ Here are the steps for building in release mode with a multi-configuration
 generator, like the Visual Studio ones:
 
 ```sh
-cmake -S . -B build
+cmake -S . -B build -D CMAKE_TOOLCHAIN_FILE=conan/conan_toolchain.cmake
 cmake --build build --config Release
 ```
 

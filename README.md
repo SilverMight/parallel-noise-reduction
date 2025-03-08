@@ -1,19 +1,22 @@
 # parallel-noise-reduction
 
-This is the parallel-noise-reduction project.
+parallel-noise-reduction uses spectral subtraction to process audio files and reduce noise in parallel.
 
 # Building and installing
 
 See the [BUILDING](BUILDING.md) document.
 
-# Contributing
+# Usage
 
-See the [CONTRIBUTING](CONTRIBUTING.md) document.
+```bash
+./build/parallel-noise-reduction [OPTIONS] input-file.wav output-file.wav
+```
 
-# Licensing
+## Options
+* `-h, --help`: print help message
+* `--threads`: Number of threads to use while processing audio. Default is number of threads in system.
+* `--noise-frames`: Number of frames to count as noise frames while analyzing the audio.
 
-<!--
-Please go to https://choosealicense.com/licenses/ and choose a license that
-fits your needs. The recommended license for a project of this type is the
-GNU AGPLv3.
--->
+# Current Bugs
+* Small WAV files may not behave well or cause crashes.
+* WAV files with headers not defined against the [typical format](http://soundfile.sapp.org/doc/WaveFormat/) standard may crash the program.
