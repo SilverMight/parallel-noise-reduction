@@ -7,8 +7,6 @@ For a list of dependencies, please refer to [conanfile.py](conanfile.py).
 ## Build
 
 ### Installing dependencies 
-For a list of dependencies, please refer to [conanfile.py](conanfile.py).
-
 If it is your first time using Conan, first install [Conan2](https://docs.conan.io/2/installation.html).
 
 You may need to make Conan to generate a profile:
