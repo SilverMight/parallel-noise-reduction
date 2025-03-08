@@ -12,9 +12,11 @@
  *
  */
 
-class wav_file {
+class wav_file
+{
   // Defined at http://soundfile.sapp.org/doc/WaveFormat/
-  struct {
+  struct
+  {
     // RIFF chunk descriptor
     char chunk_id[4];
     uint32_t chunk_size;
@@ -31,25 +33,18 @@ class wav_file {
     uint16_t bits_per_sample;
   } wav_header {};
 
-   
-
-
   void validate_header() const;
   void read_samples(const std::vector<char>& raw_audio_data);
   std::vector<char> get_raw_data_from_samples() const;
 
-
-
 public:
-  explicit wav_file(const std::filesystem::path &file_path);
+  explicit wav_file(const std::filesystem::path& file_path);
   uint16_t get_num_channels() const;
   void set_num_channels(uint16_t);
 
+  void write(const std::filesystem::path& file_path) const;
 
-  void write(const std::filesystem::path &file_path) const;
-  
   // Contains actual audio samples in the format
   // samples[channels][samples]
   std::vector<std::vector<int16_t>> samples;
-  
 };

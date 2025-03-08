@@ -28,7 +28,7 @@ namespace fftw_memory {
     using fftw_unique_ptr = std::unique_ptr<T, fftw_deleter<T>>;
 
     // unique ptr for fftw plans
-    // don't provide a seperate make_* function, as plans have a lot of different
+    // don't provide a separate make_* function, as plans have a lot of different
     // instantiation functions.
     using fftw_plan_unique_ptr = fftw_unique_ptr<fftw_plan_deref>;
 

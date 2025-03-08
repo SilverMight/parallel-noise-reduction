@@ -3,19 +3,21 @@
 #include <vector>
 
 #include "parallel_audio_processor.hpp"
-#include "fftw3.h"
 
 #include <BS_thread_pool.hpp>
 
 #include "audio_processing.hpp"
+#include "fftw3.h"
 
 parallel_audio_processor::parallel_audio_processor()
-  : parallel_audio_processor({}) {}
+    : parallel_audio_processor({})
+{
+}
 
 parallel_audio_processor::parallel_audio_processor(const options& opts)
     : pool {opts.num_threads}
     , frame_chunking_size {opts.frame_chunking_size}
-    , num_noise_frames{opts.num_noise_frames}
+    , num_noise_frames {opts.num_noise_frames}
 {
 }
 
@@ -26,7 +28,7 @@ std::vector<std::vector<int16_t>> parallel_audio_processor::process_audio(
   // so we need to call this so a lock is used around creating a plan
 
   // Executing is most of our time, anyway, but this is a hack
-  // see: https://www.fftw.org/doc/Thread-safety.html 
+  // see: https://www.fftw.org/doc/Thread-safety.html
   fftw_make_planner_thread_safe();
 
   std::vector<std::vector<int16_t>> cleaned_samples {};
@@ -56,14 +58,20 @@ std::vector<std::vector<int16_t>> parallel_audio_processor::process_audio(
   std::vector<BS::multi_future<std::vector<double>>>
       channels_cleaned_chunks_futures;
 
-  for (auto [channel, channel_noise_profile] : std::views::zip(channel_frames, channel_noise_profiles)) {
-        channels_cleaned_chunks_futures.push_back(async_process_channel_chunked(channel, channel_noise_profile, frame_size));
+  for (auto [channel, channel_noise_profile] :
+       std::views::zip(channel_frames, channel_noise_profiles))
+  {
+    channels_cleaned_chunks_futures.push_back(async_process_channel_chunked(
+        channel, channel_noise_profile, frame_size));
   }
 
-  auto cleaned_channels = std::vector<std::vector<int16_t>>(samples_doubles.size());
+  auto cleaned_channels =
+      std::vector<std::vector<int16_t>>(samples_doubles.size());
   cleaned_channels.reserve(samples_doubles.size());
-  for (auto [clean_channel, cleaned_channel_chunks_future] : std::views::zip(cleaned_channels, channels_cleaned_chunks_futures)) {
-        //
+  for (auto [clean_channel, cleaned_channel_chunks_future] :
+       std::views::zip(cleaned_channels, channels_cleaned_chunks_futures))
+  {
+    //
     // flatten samples
     std::vector<double> result_channel_samples;
     for (auto& future : cleaned_channel_chunks_future) {
@@ -73,7 +81,9 @@ std::vector<std::vector<int16_t>> parallel_audio_processor::process_audio(
                                     result_chunk.end());
     }
 
-    const auto scaled_samples = audio_processing::scale_samples_and_clamp_to_int16(result_channel_samples, max);
+    const auto scaled_samples =
+        audio_processing::scale_samples_and_clamp_to_int16(
+            result_channel_samples, max);
 
     clean_channel = scaled_samples;
   }
@@ -82,16 +92,19 @@ std::vector<std::vector<int16_t>> parallel_audio_processor::process_audio(
 }
 
 std::vector<std::vector<double>>
-parallel_audio_processor::get_noise_profiles_threaded(const std::vector<std::vector<std::vector<double>>>& channel_frames)
+parallel_audio_processor::get_noise_profiles_threaded(
+    const std::vector<std::vector<std::vector<double>>>& channel_frames)
 {
   std::vector<std::future<std::vector<double>>> noise_profile_futures;
   noise_profile_futures.reserve(channel_frames.size());
 
   for (const auto& channel : channel_frames) {
-    noise_profile_futures.push_back(
-        pool.submit_task([&channel, this]() { return audio_processing::get_noise_profile(channel, num_noise_frames); }));
+    noise_profile_futures.push_back(pool.submit_task(
+        [&channel, this]()
+        {
+          return audio_processing::get_noise_profile(channel, num_noise_frames);
+        }));
   }
-
 
   std::vector<std::vector<double>> channel_noise_profiles;
   channel_noise_profiles.reserve(noise_profile_futures.size());
@@ -105,18 +118,25 @@ parallel_audio_processor::get_noise_profiles_threaded(const std::vector<std::vec
 
 // Returns chunks of a given channel, parallelizing their processing
 BS::multi_future<std::vector<double>>
-parallel_audio_processor::async_process_channel_chunked(const std::vector<std::vector<double>>& channel_frames,
-                                                        const std::vector<double>& channel_noise_profile,
-                                                        size_t frame_size)
+parallel_audio_processor::async_process_channel_chunked(
+    const std::vector<std::vector<double>>& channel_frames,
+    const std::vector<double>& channel_noise_profile,
+    size_t frame_size)
 {
-  auto chunk_futures = pool.submit_blocks(0,
+  auto chunk_futures = pool.submit_blocks(
+      0,
       channel_frames.size(),
       [&channel_frames, &channel_noise_profile, frame_size](
-          const std::size_t start, const std::size_t end) {
-        const auto frame_chunk = std::vector<std::vector<double>>{channel_frames.begin() + static_cast<std::ptrdiff_t>(start), channel_frames.begin() + static_cast<std::ptrdiff_t>(end)};
+          const std::size_t start, const std::size_t end)
+      {
+        const auto frame_chunk = std::vector<std::vector<double>> {
+            channel_frames.begin() + static_cast<std::ptrdiff_t>(start),
+            channel_frames.begin() + static_cast<std::ptrdiff_t>(end)};
 
-        const auto cleaned_frames = audio_processing::spectral_subtraction(frame_chunk, channel_noise_profile);
-        const auto processed_mono = audio_processing::overlap_add(cleaned_frames, frame_size);
+        const auto cleaned_frames = audio_processing::spectral_subtraction(
+            frame_chunk, channel_noise_profile);
+        const auto processed_mono =
+            audio_processing::overlap_add(cleaned_frames, frame_size);
 
         return processed_mono;
       },
