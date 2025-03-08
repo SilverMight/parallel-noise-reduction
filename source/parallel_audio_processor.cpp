@@ -15,6 +15,7 @@ parallel_audio_processor::parallel_audio_processor()
 parallel_audio_processor::parallel_audio_processor(const options& opts)
     : pool {opts.num_threads}
     , frame_chunking_size {opts.frame_chunking_size}
+    , num_noise_frames{opts.num_noise_frames}
 {
 }
 
@@ -88,7 +89,7 @@ parallel_audio_processor::get_noise_profiles_threaded(const std::vector<std::vec
 
   for (const auto& channel : channel_frames) {
     noise_profile_futures.push_back(
-        pool.submit_task([&channel]() { return audio_processing::get_noise_profile(channel); }));
+        pool.submit_task([&channel, this]() { return audio_processing::get_noise_profile(channel, num_noise_frames); }));
   }
 
 

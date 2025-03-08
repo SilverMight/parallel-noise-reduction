@@ -37,6 +37,9 @@ target_link_libraries(parallel-noise-reduction_lib PRIVATE FFTW3::fftw3)
 
 find_package(bshoshany-thread-pool REQUIRED)
 target_link_libraries(parallel-noise-reduction_lib PUBLIC bshoshany-thread-pool::bshoshany-thread-pool)
+
+find_package(CLI11 REQUIRED)
+target_link_libraries(parallel-noise-reduction_lib PUBLIC CLI11::CLI11)
 # ---- Declare executable ----
 
 add_executable(parallel-noise-reduction_exe source/main.cpp)

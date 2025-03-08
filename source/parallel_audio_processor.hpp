@@ -9,6 +9,7 @@ public:
     struct options {
         size_t num_threads = std::thread::hardware_concurrency();
         size_t frame_chunking_size = 32;
+        size_t num_noise_frames = 50;
     };
 
     explicit parallel_audio_processor();
@@ -30,5 +31,6 @@ public:
 
 private:
     BS::thread_pool<BS::tp::none> pool;
-    size_t frame_chunking_size;
+    std::size_t frame_chunking_size;
+    std::size_t num_noise_frames;
 };

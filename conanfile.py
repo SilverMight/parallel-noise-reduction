@@ -15,6 +15,7 @@ class Recipe(ConanFile):
         self.requires("fmt/11.0.2")
         self.requires("fftw/3.3.10")
         self.requires("bshoshany-thread-pool/5.0.0")
+        self.requires("cli11/2.4.2")
         pass
 
     def build_requirements(self):

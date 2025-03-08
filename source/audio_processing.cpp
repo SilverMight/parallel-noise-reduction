@@ -189,9 +189,8 @@ std::vector<std::vector<double>> spectral_subtraction(const std::vector<std::vec
   return clean_frames;
 }
 
-std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& frames) {
-  constexpr size_t noise_frames = 5;
-
+std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& frames,
+                                      std::size_t num_noise_frames) {
   const auto frame_size = frames[0].size();
   const auto complex_size = frame_size / 2 + 1;
 
@@ -213,9 +212,9 @@ std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& fr
 
   // Noise profile calculation
   std::vector<double> noise_profile(frame_size/2 + 1, 0.0);
-  const auto num_noise_frames = std::min(noise_frames, frames.size());
+  const auto num_noise_frames_fixed = std::min(num_noise_frames, frames.size());
 
-  for(std::size_t i = 0; i < num_noise_frames; ++i) {
+  for(std::size_t i = 0; i < num_noise_frames_fixed; ++i) {
     std::copy(frames[i].begin(), frames[i].end(), fft_in.get());
     fftw_execute(forward_plan.get());
 
