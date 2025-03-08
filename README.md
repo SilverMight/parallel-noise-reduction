@@ -12,6 +12,9 @@ See the [BUILDING](BUILDING.md) document.
 ./build/parallel-noise-reduction [OPTIONS] input-file.wav output-file.wav
 ```
 
+# Benchmark
+A [prepared set of WAV files containing noise](https://drive.google.com/drive/folders/1S3Tb6UfNnOkwKGDTBBVp-IH55mMGy2GM) is provided to showcase the performance of parallel-noise-reduction.
+
 ## Options
 * `-h, --help`: print help message
 * `--threads`: Number of threads to use while processing audio. Default is number of threads in system.
