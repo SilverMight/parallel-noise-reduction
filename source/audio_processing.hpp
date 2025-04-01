@@ -5,8 +5,8 @@
 namespace audio_processing {
 constexpr auto default_overlap = 0.5;
 
-template<typename T>
-std::vector<std::vector<T>> cast_2d_vec_to_t(const std::vector<std::vector<int16_t>>& input) {
+template<typename T, typename U>
+std::vector<std::vector<T>> cast_2d_vec_to_t(const std::vector<std::vector<U>>& input) {
     std::vector<std::vector<T>> output{};
     output.reserve(input.size());
 

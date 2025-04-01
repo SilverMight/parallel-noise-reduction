@@ -9,6 +9,9 @@ class Recipe(ConanFile):
         self.folders.generators = "conan"
 
     def configure(self):
+        #TODO: may not do anything
+        self.settings.compiler.cppstd = "23" # C++23
+
         self.options['fftw/3.3.10'].threads = True
 
     def requirements(self):
