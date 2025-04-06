@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <fftw3.h>
 namespace audio_processing {
 constexpr auto default_overlap = 0.5;
 
@@ -36,10 +37,12 @@ std::vector<std::vector<double>> frame_slice(const std::vector<double>& samples,
 std::vector<double> generate_hamming_window(size_t window_size);
 void apply_hamming_window(std::vector<std::vector<double>>& frames);
 
-std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& frames, std::size_t num_noise_frames);
+std::vector<double> get_noise_profile(const std::vector<std::vector<double>>& frames, std::size_t num_noise_frames, fftw_plan forward_plan);
 
 std::vector<std::vector<double>> spectral_subtraction(const std::vector<std::vector<double>>& frames,
-                                                      const std::vector<double>& noise_profile); 
+                                                      const std::vector<double>& noise_profile,
+                                                      fftw_plan forward_plan,
+                                                      fftw_plan backward_plan); 
 
 std::vector<double> overlap_add(const std::vector<std::vector<double>>& frames,  size_t frame_size, double overlap_ratio = default_overlap);
 

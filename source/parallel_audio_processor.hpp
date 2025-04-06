@@ -1,6 +1,7 @@
 #include <cstdint>
 
 #include <BS_thread_pool.hpp>
+#include "fftw_memory.hh"
 
 
 class parallel_audio_processor
@@ -30,7 +31,12 @@ public:
                                         int16_t max);
 
 private:
+    static constexpr size_t frame_size = 1024;
+
     BS::thread_pool<BS::tp::none> pool;
     std::size_t frame_chunking_size;
     std::size_t num_noise_frames;
+
+    fftw_memory::fftw_plan_unique_ptr forward_plan;
+    fftw_memory::fftw_plan_unique_ptr backward_plan;
 };
