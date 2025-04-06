@@ -9,7 +9,7 @@
 #include <bit>
 #include <array>
 #include <cstring>
-#include <cstdint>
+#include <cstdint> 
 #include <vector>
 
 wav_file::wav_file(const std::filesystem::path &file_path) {
@@ -112,6 +112,7 @@ std::vector<char> wav_file::get_raw_data_from_samples() const {
 }
 
 
+
 void wav_file::validate_header() const {
   // "RIFF" ASCII string
   const std::string chunk_id{wav_header.chunk_id, 4};
@@ -157,11 +158,11 @@ void wav_file::write(const std::filesystem::path& file_path) const {
   file.close();
 }
 
-uint16_t wav_file::get_num_channels() const {
-  return wav_header.num_channels;
+
+void wav_file::set_samples(std::vector<std::vector<int16_t>> new_samples) {
+  this->samples = std::move(new_samples);
 }
 
-void wav_file::set_num_channels(uint16_t num)
-{
-  wav_header.num_channels = num;
+const std::vector<std::vector<int16_t>>& wav_file::get_samples() {
+  return samples;
 }

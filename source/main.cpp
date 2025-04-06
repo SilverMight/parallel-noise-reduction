@@ -1,15 +1,9 @@
-#include <algorithm>
 #include <filesystem>
-#include <future>
 #include <iostream>
-#include <numbers>
-#include <ranges>
-#include <span>
 #include <vector>
 
 #include <CLI/CLI.hpp>
 
-#include "audio_processing.hpp"
 #include "parallel_audio_processor.hpp"
 #include "wav_file.hpp"
 
@@ -29,7 +23,6 @@ auto main(int argc, char* argv[]) -> int
   app.add_option("--noise-frames", opts.num_noise_frames, "Number of frames to count as noise frames when analyzing audio")->capture_default_str();
   // TODO: support specifying chunk size
 
-
   CLI11_PARSE(app, argc, argv);
 
   if (!std::filesystem::exists(input_file)) {
@@ -37,13 +30,14 @@ auto main(int argc, char* argv[]) -> int
     return -1;
   }
 
-  wav_file input_wav {input_file};
+  wav_file input_wav{input_file};
 
   parallel_audio_processor processor{opts};
 
-  const auto cleaned_samples = processor.process_audio(input_wav.samples);
+  const auto cleaned_samples = processor.process_audio(input_wav.get_samples());
 
-  input_wav.samples = cleaned_samples;
+  input_wav.set_samples(cleaned_samples);
+
   input_wav.write(output_file);
 
   return 0;
