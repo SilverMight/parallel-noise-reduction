@@ -65,7 +65,9 @@ void wav_file::read_samples(const std::vector<char>& raw_audio_data) {
 
   // Can only handle 16-bit samples right now
   // TODO: Handle this nicely
-  assert(sizeof(int16_t) == bytes_per_sample);
+  if(sizeof(int16_t) != bytes_per_sample) {
+    throw std::runtime_error(fmt::format("File has {} bytes per sample. Only 16-bit samples (2-byte) are supported.", bytes_per_sample));
+  }
 
   const auto num_samples = raw_audio_data.size() / (bytes_per_sample * wav_header.num_channels );
 
@@ -93,7 +95,6 @@ std::vector<char> wav_file::get_raw_data_from_samples() const {
   const auto num_channels = samples.size();
 
   std::vector<char> raw_audio_data(num_samples * num_channels * bytes_per_sample);
-  assert(bytes_per_sample == 2);
 
   for(size_t ch = 0; ch < wav_header.num_channels; ++ch) {
     for(size_t i = 0; i < num_samples; ++i) {
