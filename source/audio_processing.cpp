@@ -32,7 +32,7 @@ int16_t normalize_audio(std::vector<std::vector<double>>& samples)
   // Find max value
   for (const auto& channel : samples)
   {
-    const auto channel_max = std::max_element(channel.begin(), channel.end(), [](int16_t a, int16_t b) { return std::abs(a) < std::abs(b); });
+    const auto channel_max = std::ranges::max_element(channel, [](int16_t a, int16_t b) { return std::abs(a) < std::abs(b); });
 
     // TODO: check empty vec here
     max = std::max(max, static_cast<int16_t>(std::abs(*channel_max)));
