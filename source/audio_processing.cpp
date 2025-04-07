@@ -52,27 +52,6 @@ int16_t normalize_audio(std::vector<std::vector<double>>& samples)
   return max;
 }
 
-std::vector<double> sum_to_mono(const std::vector<std::vector<double>>& samples)
-{
-  const size_t channels = samples.size();
-  const size_t length_of_samples = samples[0].size();
-
-  std::vector<double> mono_data(length_of_samples);
-
-  for (size_t i = 0; i < length_of_samples; i++)
-  {
-    double total = 0; // avoid overflow
-    for (const auto& channel : samples)
-    {
-      total += channel[i];
-    }
-
-    mono_data[i] = total / static_cast<double>(channels);
-  }
-
-  return mono_data;
-}
-
 std::vector<std::vector<double>> frame_slice(const std::vector<double>& samples, size_t frame_size, double overlap_ratio)
 {
   std::vector<std::vector<double>> frames;

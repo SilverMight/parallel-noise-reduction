@@ -15,6 +15,8 @@ parallel_audio_processor::parallel_audio_processor(const options& opts)
     : pool {opts.num_threads}
     , frame_chunking_size {opts.frame_chunking_size}
     , num_noise_frames{opts.num_noise_frames}
+    // Each plan will use new array execute functions, so we omit specifying an array ptr
+    // for each plan by using nullptr.
     , forward_plan(fftw_plan_dft_r2c_1d(frame_size, nullptr, nullptr, FFTW_ESTIMATE))
     , backward_plan(fftw_plan_dft_c2r_1d(frame_size, nullptr, nullptr, FFTW_ESTIMATE))
 {
@@ -29,33 +31,37 @@ std::vector<std::vector<int16_t>> parallel_audio_processor::process_audio(
 
   auto max = audio_processing::normalize_audio(samples_doubles);
 
+  // 2D array of frames per each channel, i.e double[channel][frames][sample].
   std::vector<std::vector<std::vector<double>>> channel_frames {};
 
-  // do this sequentially, shouldn't take very long, thread overhead may not be
-  // worth it.
+  // Sequentially slice each channel into frames and apply hamming window.
+  // This is done sequentially.
   for (const auto& channel_samples : samples_doubles) {
     auto frames = audio_processing::frame_slice(channel_samples, frame_size);
     audio_processing::apply_hamming_window(frames);
     channel_frames.push_back(std::move(frames));
   }
 
-  // Calculate noise profile of each thread in parallel
+  // Calculate noise profile of each channel in parallel
   std::vector<std::vector<double>> channel_noise_profiles =
       get_noise_profiles_threaded(channel_frames);
 
   // Now, submit async tasks for each channel's frames - we do this so the
   // thread pool receives all chunks of all channels at once
+  
+  // This is a array of multifutures per each channel.
+  // The i'th multi_future contains multiple chunks of channel i's samples 
   std::vector<BS::multi_future<std::vector<double>>>
       channels_cleaned_chunks_futures;
 
   for (auto [channel, channel_noise_profile] : std::views::zip(channel_frames, channel_noise_profiles)) {
-        channels_cleaned_chunks_futures.push_back(async_process_channel_chunked(channel, channel_noise_profile, frame_size));
+    channels_cleaned_chunks_futures.push_back(async_process_channel_chunked(channel, channel_noise_profile));
   }
 
+  // "Dechunk" samples for each channel
   auto cleaned_channels = std::vector<std::vector<int16_t>>(samples_doubles.size());
   cleaned_channels.reserve(samples_doubles.size());
   for (auto [clean_channel, cleaned_channel_chunks_future] : std::views::zip(cleaned_channels, channels_cleaned_chunks_futures)) {
-        //
     // flatten samples
     std::vector<double> result_channel_samples;
     for (auto& future : cleaned_channel_chunks_future) {
@@ -98,12 +104,11 @@ parallel_audio_processor::get_noise_profiles_threaded(const std::vector<std::vec
 // Returns chunks of a given channel, parallelizing their processing
 BS::multi_future<std::vector<double>>
 parallel_audio_processor::async_process_channel_chunked(const std::vector<std::vector<double>>& channel_frames,
-                                                        const std::vector<double>& channel_noise_profile,
-                                                        size_t frame_size)
+                                                        const std::vector<double>& channel_noise_profile)
 {
   auto chunk_futures = pool.submit_blocks(0,
       channel_frames.size(),
-      [&channel_frames, &channel_noise_profile, frame_size, this](
+      [&channel_frames, &channel_noise_profile, this](
           const std::size_t start, const std::size_t end) {
         const auto frame_chunk = std::vector<std::vector<double>>{channel_frames.begin() + static_cast<std::ptrdiff_t>(start), channel_frames.begin() + static_cast<std::ptrdiff_t>(end)};
 
